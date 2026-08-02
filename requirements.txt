@@ -1,0 +1,11 @@
+notion-client==2.2.1
+pandas==2.3.0
+
+yfinance==0.2.61
+requests==2.32.3
+
+# 주식 거래일인지 아닌지 걸러주는 설정
+exchange-calendars
+
+numpy==2.4.6
+matplotlib==3.11.1
