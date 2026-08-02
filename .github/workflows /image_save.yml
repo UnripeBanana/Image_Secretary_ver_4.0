@@ -1,0 +1,61 @@
+name: Image Production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: repository-write
+  cancel-in-progress: false
+
+jobs:
+  save-history:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+          
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install packages
+        run: pip install -r requirements.txt
+
+      - name: Make Images
+        run: python3 image_main.py
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DOMESTIC_STOCK_INFO_DB_ID: ${{ secrets.NOTION_DOMESTIC_STOCK_INFO_DB_ID }}
+          NOTION_NET_PROFIT_DB_ID: ${{ secrets.NOTION_NET_PROFIT_DB_ID }}
+          NOTION_DOMESTIC_STOCK_TRADE_DB_ID: ${{ secrets.NOTION_DOMESTIC_STOCK_TRADE_DB_ID }}
+          NOTION_DOMESTIC_STOCK_DIVIDEND_DB_ID: ${{ secrets.NOTION_DOMESTIC_STOCK_DIVIDEND_DB_ID }}
+          NOTION_KRX_GOLD_INFO_DB_ID: ${{ secrets.NOTION_KRX_GOLD_INFO_DB_ID }}
+          NOTION_KRX_GOLD_TRADE_DB_ID: ${{ secrets.NOTION_KRX_GOLD_TRADE_DB_ID }}
+          NOTION_DOMESTIC_BOND_ETF_TRADE_DB_ID: ${{ secrets.NOTION_DOMESTIC_BOND_ETF_TRADE_DB_ID }}
+          NOTION_DOMESTIC_BOND_ETF_INFO_DB_ID: ${{ secrets.NOTION_DOMESTIC_BOND_ETF_INFO_DB_ID }}
+
+      - name: Commit and Push CSV
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            TODAY=$(date +'%Y-%m-%d')
+      
+            git commit -m "Daily market history (${TODAY})"
+            # 최신 main 반영
+            git pull --rebase origin main
+
+            # push
+            git push origin main
+          fi
