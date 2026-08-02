@@ -105,8 +105,8 @@ def domestic_stock_chart_maker(stock_df, name):
     tick_labels = [stock_df.loc[i, "date"].strftime(date_format) for i in tick_positions]
 
     # 4. 축 적용
-    ax_l.set_xticks(tick_positions)
-    ax_l.set_xticklabels(
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(
         tick_labels,
         rotation=0,
         fontsize=9,
