@@ -149,14 +149,14 @@ def index_day_candle_chart_maker(index_df):
     #-----------------------------------------------------
     # 날짜 표시 (개선된 동적 간격 로직)
     #-----------------------------------------------------
-    total_len = len(merged)
+    total_len = len(index_df)
     
     # 1. 화면에 표시할 최대 라벨 개수 설정 (16:9 비율 기준 15~20개가 적당함)
     max_labels = 12
     step = max(1, total_len // max_labels)
     
     # 2. 데이터 기간(날짜) 차이에 따라 포맷 자동 지정
-    date_range_days = (merged["date"].max() - merged["date"].min()).days
+    date_range_days = (index_df["date"].max() - index_df["date"].min()).days
     
     if date_range_days > 1500:        # 3년 초과 -> 연도만
         date_format = "%Y"
@@ -167,7 +167,7 @@ def index_day_candle_chart_maker(index_df):
 
     # 3. 일정 간격(step)으로 인덱스 추출
     tick_positions = list(range(0, total_len, step))
-    tick_labels = [merged.loc[i, "date"].strftime(date_format) for i in tick_positions]
+    tick_labels = [index_df.loc[i, "date"].strftime(date_format) for i in tick_positions]
 
     # 4. 축 적용
     ax_l.set_xticks(tick_positions)
