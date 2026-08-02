@@ -83,65 +83,35 @@ def price_chart_maker(price_df):
     )
     
     #-----------------------------------------------------
-    # 날짜 표시 (매주 첫 거래일)
+    # 날짜 표시 (개선된 동적 간격 로직)
     #-----------------------------------------------------
-    tick_positions = []
-    tick_labels = []
-    week_count = 0
+    total_len = len(merged)
     
-    last_week = None
-
-    if len(x) > 900:
-        for i, row in price_df.iterrows():
-            
-            week = row["date"].isocalendar().week
-        
-            if week != last_week:
-                if not week_count%(len(x)//50):
-                    tick_positions.append(i)
-                    tick_labels.append(row["date"].strftime("%Y")) 
-                last_week = week
-                week_count += 1
-
-    elif len(x) > 240:
-        for i, row in price_df.iterrows():
-            
-            week = row["date"].isocalendar().week
-        
-            if week != last_week:
-                if not week_count%(len(x)//50):
-                    tick_positions.append(i)
-                    tick_labels.append(row["date"].strftime("%Y-%m"))
-                last_week = week
-                week_count += 1
-
-    elif len(x) > 80:
-        for i, row in defaultdict.iterrows():
-            
-            week = row["date"].isocalendar().week
-        
-            if week != last_week:
-                if not week_count%(len(x)//50):
-                    tick_positions.append(i)
-                    tick_labels.append(row["date"].strftime("%m-%d"))
-                last_week = week
-                week_count += 1
-
-    else:
-        for i, row in price_df.iterrows():
-
-            week = row["date"].isocalendar().week
-        
-            if week != last_week:
-                tick_positions.append(i)
-                tick_labels.append(row["date"].strftime("%m-%d"))
-                last_week = week
+    # 1. 화면에 표시할 최대 라벨 개수 설정 (16:9 비율 기준 15~20개가 적당함)
+    max_labels = 12
+    step = max(1, total_len // max_labels)
     
-    ax.set_xticks(tick_positions)
-    ax.set_xticklabels(
+    # 2. 데이터 기간(날짜) 차이에 따라 포맷 자동 지정
+    date_range_days = (merged["date"].max() - merged["date"].min()).days
+    
+    if date_range_days > 1500:        # 3년 초과 -> 연도만
+        date_format = "%Y"
+    elif date_range_days > 900:           # 3개월 초과 -> 연-월
+        date_format = "%Y-%m"
+    else:                                # 3개월 이하 -> 월-일
+        date_format = "%m-%d"
+
+    # 3. 일정 간격(step)으로 인덱스 추출
+    tick_positions = list(range(0, total_len, step))
+    tick_labels = [merged.loc[i, "date"].strftime(date_format) for i in tick_positions]
+
+    # 4. 축 적용
+    ax_l.set_xticks(tick_positions)
+    ax_l.set_xticklabels(
         tick_labels,
         rotation=0,
-        fontsize=9
+        fontsize=9,
+        ha="center"
     )
 
     #-----------------------------------------------------
