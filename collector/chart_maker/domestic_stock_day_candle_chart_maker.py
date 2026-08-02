@@ -1,0 +1,340 @@
+from pathlib import Path
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.patches import Polygon
+from matplotlib.transforms import blended_transform_factory
+from matplotlib.ticker import FuncFormatter
+
+def domestic_stock_day_candle_chart_maker(stock, name):
+    stock = stock.reset_index(drop=True)          # stock index 초기화 작업(오류 방지)
+
+    #-----------------------------------------------------
+    # chart 사이즈 설정
+    #-----------------------------------------------------
+    fig, ax = plt.subplots(figsize=(16, 9))
+    x = np.arange(len(stock))
+
+    #-----------------------------------------------------
+    # 축 설정
+    #-----------------------------------------------------
+    # 테두리 제거
+    ax.spines["top"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    
+    # y축을 오른쪽으로 이동
+    ax.yaxis.tick_right()
+    ax.yaxis.set_label_position("right")
+
+    ax.tick_params(
+        axis="x",
+        bottom=False,      # 아래쪽 눈금 표시
+        labelbottom=True, # 아래쪽 라벨 표시
+        top=False,        # 위쪽 눈금 숨김
+        labeltop=False    # 위쪽 라벨 숨김
+    )
+    
+    ax.tick_params(
+        axis="y",
+        left=False,
+        labelleft=False,
+        right=False,
+        labelright=True
+    )
+    
+    # 양 옆 여백 조금 주기
+    ax.set_xlim(-1, len(stock) - 0.5)
+    
+    # 위 아래 여백 조금 주기
+    price_min = stock["low"].min()
+    price_max = stock["high"].max()
+    
+    margin = (price_max - price_min) * 0.05
+    
+    
+    ax.set_ylim(
+        price_min - margin,
+        price_max + margin*2.5
+    )
+
+    ax.yaxis.set_major_formatter(
+        FuncFormatter(lambda x, pos: f"{int(x):,}")
+    )
+
+    # x축에 평행한 선 그리기
+    ax.grid(
+        axis="y",
+        color="gray",
+        alpha=0.15,
+        linewidth=0.8
+    )
+
+    #-----------------------------------------------------
+    # 캔들차트 생성
+    #-----------------------------------------------------
+    # 최고가 / 최저가
+    high_idx = stock["high"].idxmax()
+    low_idx = stock["low"].idxmin()
+    
+    high_price = stock.loc[high_idx, "high"]
+    low_price = stock.loc[low_idx, "low"]
+
+    non_move_plan_b = (high_price - low_price)*0.002
+
+
+    for i, row in stock.iterrows():
+        open_price = row["open"]
+        high_price = row["high"]
+        low_price = row["low"]
+        close_price = row["close"]
+    
+        # 상승 / 하락 색상
+        color = "#e53935" if close_price > open_price else "#1565c0" if close_price < open_price else "#000000"
+    
+        # 심지
+        ax.vlines(
+            x=i,
+            ymin=low_price,
+            ymax=high_price,
+            color=color,
+            linewidth=0.9
+        )
+    
+        # 몸통
+        body_bottom = min(open_price, close_price)
+        body_height = abs(close_price - open_price)
+    
+        # 시가 = 종가인 경우도 보이도록
+        if body_height == 0:
+            body_height = non_move_plan_b
+
+        candle_width = 0.75
+        rect = Rectangle(
+            (i - candle_width / 2, body_bottom),
+            candle_width,
+            body_height,
+            facecolor=color,
+            edgecolor="none"     # ← 테두리 완전 제거
+        )
+    
+        ax.add_patch(rect)
+
+    #-----------------------------------------------------
+    # 이동평균선
+    #-----------------------------------------------------
+    stock["MA5"] = stock["close"].rolling(5).mean()
+    stock["MA20"] = stock["close"].rolling(20).mean()
+    stock["MA60"] = stock["close"].rolling(60).mean()
+    stock["MA120"] = stock["close"].rolling(120).mean()
+    
+    ax.plot(x, stock["MA5"], color="green", linewidth=1.2, label="5")
+    ax.plot(x, stock["MA20"], color="red", linewidth=1.2, label="20")
+    ax.plot(x, stock["MA60"], color="orange", linewidth=1.2, label="60")
+    ax.plot(x, stock["MA120"], color="purple", linewidth=1.2, label="120")
+    
+    ax.text(0.01, 0.98, "MA", transform=ax.transAxes,
+        va="top", fontsize=10, color="black")
+    ax.text(0.04, 0.98, "5", transform=ax.transAxes,
+        va="top", fontsize=10, color="green")
+    ax.text(0.055, 0.98, "20", transform=ax.transAxes,
+        va="top", fontsize=10, color="red")
+    ax.text(0.075, 0.98, "60", transform=ax.transAxes,
+        va="top", fontsize=10, color="orange")
+    ax.text(0.095, 0.98, "120", transform=ax.transAxes,
+        va="top", fontsize=10, color="purple")
+
+    #-----------------------------------------------------
+    # 날짜 표시 (매주 첫 거래일)
+    #-----------------------------------------------------
+    tick_positions = []
+    tick_labels = []
+    week_count = 0
+    
+    last_week = None
+
+    if len(x) > 900:
+        for i, row in stock.iterrows():
+            
+            week = row["date"].isocalendar().week
+        
+            if week != last_week:
+                if not week_count%(len(x)//50):
+                    tick_positions.append(i)
+                    tick_labels.append(row["date"].strftime("%Y")) 
+                last_week = week
+                week_count += 1
+
+    elif len(x) > 240:
+        for i, row in stock.iterrows():
+            
+            week = row["date"].isocalendar().week
+        
+            if week != last_week:
+                if not week_count%(len(x)//50):
+                    tick_positions.append(i)
+                    tick_labels.append(row["date"].strftime("%Y-%m"))
+                last_week = week
+                week_count += 1
+
+    elif len(x) > 80:
+        for i, row in stock.iterrows():
+            
+            week = row["date"].isocalendar().week
+        
+            if week != last_week:
+                if not week_count%(len(x)//50):
+                    tick_positions.append(i)
+                    tick_labels.append(row["date"].strftime("%m-%d"))
+                last_week = week
+                week_count += 1
+
+    else:
+        for i, row in stock.iterrows():
+
+            week = row["date"].isocalendar().week
+        
+            if week != last_week:
+                tick_positions.append(i)
+                tick_labels.append(row["date"].strftime("%m-%d"))
+                last_week = week
+    
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(
+        tick_labels,
+        rotation=0,
+        fontsize=9
+    )
+
+    #-----------------------------------------------------
+    # 최고가 최저가 표시
+    #-----------------------------------------------------
+    # 최고가 / 최저가
+    high_idx = stock["high"].idxmax()
+    low_idx = stock["low"].idxmin()
+    
+    high_price = stock.loc[high_idx, "high"]
+    low_price = stock.loc[low_idx, "low"]
+    x_offset = len(x) * 0.007
+    y_offset = (price_max - price_min) * 0.02
+
+    
+    # 최고가 표시
+    ax.plot(
+        high_idx,                            # x 좌표
+        high_price + y_offset,                 # y 좌표
+        marker="v",                          # ▼ 표시
+        color="gray",
+        markersize = 5
+    )
+
+    if len(x)*0.5 < high_idx:
+        x_cord = high_idx - x_offset
+        ha = "right"
+    else:
+        x_cord = high_idx + x_offset
+        ha = "left"
+        
+    ax.text(
+        x_cord,                              # x 좌표
+        high_price + y_offset,               # ▼와 같은 높이
+        f"High Price {high_price:,}",
+        va = "center",
+        ha = ha,
+        fontsize = 8,
+        color="gray"
+    )
+    
+    # 최저가 표시
+    ax.plot(
+        low_idx,
+        low_price - y_offset,
+        marker="^",                          # ▲ 표시
+        color="gray",
+        markersize = 5
+    )
+
+    if low_idx < len(x)*0.5:
+        x_cord = low_idx + x_offset
+        ha = "left"
+    else:
+        x_cord = low_idx - x_offset
+        ha = "right"
+
+
+    ax.text(
+        x_cord,                       # x 좌표
+        low_price - y_offset,           # ▲와 같은 높이
+        f"Low Price {low_price:,}",
+        va = "center",
+        ha = ha,
+        fontsize = 8,
+        color="gray"
+    )
+
+    #-----------------------------------------------------
+    # 현재가 표시
+    #-----------------------------------------------------
+    last_close = stock.iloc[-2]["close"]
+    current_close = stock.iloc[-1]["close"]
+    
+    # 당일 상승/하락에 따라 색상 결정
+    current_color = "#e53935" if current_close >= last_close else "#1565c0"
+
+    transform = blended_transform_factory(
+        ax.transAxes,   # x는 축 좌표
+        ax.transData    # y는 데이터 좌표
+    )
+
+    triangle_height = (price_max - price_min) * 0.014
+    triangle = Polygon(
+        [
+            [0.9998, current_close],
+            [1.006, current_close + triangle_height],
+            [1.006, current_close - triangle_height]
+        ],
+        closed=True,
+        facecolor=current_color,
+        edgecolor="none",
+        transform=transform,
+        clip_on=False
+    )
+
+    ax.add_patch(triangle)
+
+    ax.text(
+        1.0075,                 # 축의 오른쪽 바깥 0.75%
+        current_close,             # 실제 현재가
+        f"{current_close:,}",
+        transform=transform,
+        ha="left",
+        va="center",
+        fontsize=9,
+        color="white",
+        bbox=dict(
+            boxstyle="round,pad=0.3",
+            fc=current_color,
+            ec="none"
+        )
+    )
+    
+    #-----------------------------------------------------
+    # 저장
+    #-----------------------------------------------------
+    plt.tight_layout()
+
+    ticker = stock.iloc[1]["ticker"]
+    day = stock.iloc[1]["day"]
+    
+    title = f"data/image/domestic_stock/{name}_{ticker}_{day}days_day_candle_chart.png"
+    plt.show()
+
+    plt.savefig(
+        title,
+        dpi=300,
+        bbox_inches="tight"
+    )
+
+    plt.close(fig)
