@@ -12,7 +12,6 @@ from collector.chart_maker.price_chart_maker import price_chart_maker
 from collector.chart_maker.standard_interest_chart_maker import standard_interest_chart_maker
 from collector.chart_maker.double_price_data_chart_maker import double_price_data_chart_maker
 
-from notion.index_callout.performer import index_callout_performer
 from notion.get_all_pages import get_all_pages
 from notion.config import NOTION_DOMESTIC_STOCK_INFO_DB_ID
 
